@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Longing Cave Map — Interactive Map of Every Room</title>
+<meta name="description" content="Interactive map of every cave room in The Longing, the 400-day game by Studio Seufz. See where each passage leads and keep markers and notes as you explore.">
+<link rel="canonical" href="https://app-roach.github.io/the-longing-map/">
+<link rel="icon" href="favicon.png" sizes="96x96" type="image/png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Longing Cave Map">
+<meta property="og:url" content="https://app-roach.github.io/the-longing-map/">
+<meta property="og:title" content="The Longing Cave Map">
+<meta property="og:description" content="Interactive map of every cave room in The Longing. See where each passage leads and keep markers and notes as you explore.">
+<meta property="og:image" content="https://app-roach.github.io/the-longing-map/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The caves of The Longing on one map: the royal halls, the King, the Library, the Mine and Moss Cliff">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "The Longing Cave Map",
+  "url": "https://app-roach.github.io/the-longing-map/",
+  "description": "Interactive map of every cave room in The Longing. See where each passage leads and keep markers and notes as you explore.",
+  "applicationCategory": "ReferenceApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "image": "https://app-roach.github.io/the-longing-map/og-image.jpg",
+  "about": {
+    "@type": "VideoGame",
+    "name": "The Longing",
+    "author": { "@type": "Organization", "name": "Studio Seufz" },
+    "publisher": { "@type": "Organization", "name": "Application Systems Heidelberg" },
+    "datePublished": "2020-03-05",
+    "sameAs": "https://store.steampowered.com/app/893850/THE_LONGING/"
+  }
+}
+</script>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="art"></canvas>
+  <canvas id="steps"></canvas>
+  <canvas id="lines"></canvas>
+  <div id="labels"></div>
+  <div id="markers"></div>
+</div>
+
+<header id="topbar">
+  <h1>The Longing <span>cave map</span></h1>
+  <div class="search">
+    <input id="search" type="search" placeholder="Find a room…" autocomplete="off" spellcheck="false">
+    <ul id="search-results" hidden></ul>
+  </div>
+</header>
+
+<nav id="toolbar" aria-label="Tools">
+  <div class="strip">
+  <button class="tool active" data-tool="pan" title="Pan &amp; select (Esc)">
+    <svg viewBox="0 0 24 24"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-6.5v-1a1.5 1.5 0 0 1 3 0V12m0-6a1.5 1.5 0 0 1 3 0v7m0-4a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1.5a7 7 0 0 1-5.6-2.8L3.6 15a1.6 1.6 0 0 1 2.5-2L8 15"/></svg>
+  </button>
+  <button class="tool" id="edit-toggle" title="Edit layout: move rooms, bend connections (E)">
+    <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
+  </button>
+  </div>
+  <div class="strip" id="marker-tools"></div>
+</nav>
+
+<div id="zoombar">
+  <button id="zoom-in" title="Zoom in (+)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button id="zoom-out" title="Zoom out (−)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+  <button id="zoom-fit" title="Show whole map (F)">
+    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+</div>
+
+<div id="hint" hidden></div>
+
+<div id="editbar" hidden>
+  <div class="eb-main">
+    <b>Editing layout</b>
+    <span id="edit-info" class="muted"></span>
+  </div>
+  <label class="eb-slider" title="How much footsteps fade where there is art behind them (they always stay solid on black)">Footstep fade
+    <input type="range" id="step-fade" min="0" max="1" step="0.05"><output id="step-fade-out"></output></label>
+  <div class="eb-actions">
+    <button id="undo" title="Undo (⌘Z / Ctrl+Z)">Undo</button>
+    <button id="redo" title="Redo (⇧⌘Z / Ctrl+Y)">Redo</button>
+    <span class="layout-status muted small"></span>
+    <button class="layout-export" title="Download this layout as layout.js, to replace data/layout.js">Export…</button>
+    <button id="edit-done" class="primary">Done</button>
+  </div>
+</div>
+
+<aside id="panel">
+  <button id="panel-toggle" title="Toggle panel (P)" aria-label="Toggle panel">
+    <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+  </button>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="room">Room</button>
+    <button class="tab" data-tab="markers">Markers <span id="marker-count"></span></button>
+    <button class="tab" data-tab="settings">Map</button>
+    <button class="tab" data-tab="about">About</button>
+  </div>
+
+  <section class="tabpane active" id="tab-room">
+    <div id="room-empty" class="empty">
+      <p>Select a room on the map to see where it leads.</p>
+      <p class="muted">Drag to pan, scroll to zoom. Right-click anywhere to drop a marker, or pick one from the toolbar on the left.</p>
+      <p id="fog-note" class="muted" hidden>Rooms you haven't visited stay hidden. Mark a room as visited (V or right-click) to reveal the way on, or turn off Hide unvisited in the Map tab to see the whole map.</p>
+    </div>
+    <div id="room-info" hidden>
+      <div class="room-head">
+        <h2 id="room-name"></h2>
+      </div>
+      <label class="check"><input type="checkbox" id="room-visited"> <span>Visited</span></label>
+      <h3>Pathways</h3>
+      <ul id="room-links" class="linklist"></ul>
+      <div id="room-variants"></div>
+      <h3>Markers here</h3>
+      <ul id="room-markers" class="mlist"></ul>
+      <h3>Notes</h3>
+      <textarea id="room-notes" rows="4" placeholder="What did you find here?"></textarea>
+    </div>
+  </section>
+
+  <section class="tabpane" id="tab-markers">
+    <div class="row">
+      <input id="marker-filter" type="search" placeholder="Filter markers…">
+    </div>
+    <div id="type-filter" class="chips"></div>
+    <ul id="marker-list" class="mlist"></ul>
+    <div id="markers-empty" class="empty"><p>No markers yet.</p><p class="muted">Right-click the map, or choose a marker type on the left and click where it belongs.</p></div>
+  </section>
+
+  <section class="tabpane" id="tab-settings">
+    <h3>View</h3>
+    <label class="slider">Brightness <input type="range" id="brightness" min="0.6" max="2.6" step="0.05"><output id="brightness-out"></output></label>
+    <label class="slider" title="Brightness of the footstep trails between rooms; all the way left hides them">Pathways <input type="range" id="pathways" min="0" max="1" step="0.05"><output id="pathways-out"></output></label>
+    <label class="check"><input type="checkbox" id="opt-labels"> <span>Room names</span></label>
+    <label class="check"><input type="checkbox" id="opt-marker-labels"> <span>Marker titles</span></label>
+    <label class="check"><input type="checkbox" id="opt-fog"> <span>Hide unvisited</span></label>
+
+    <h3>Layout</h3>
+    <p class="muted small">Move rooms and bend connections to untangle the map. <span class="layout-status"></span>.</p>
+    <p id="layout-hint" class="muted small">To save the layout into the project (<code>data/layout.js</code>), open the map with <code>python3 tools/serve.py</code>. Otherwise it stays in this browser.</p>
+    <div class="buttons">
+      <button id="edit-open" class="primary">Edit layout</button>
+      <button class="layout-export" title="Download this layout as layout.js, to replace data/layout.js">Export…</button>
+      <button id="layout-reset" class="danger">Reset layout</button>
+    </div>
+
+    <h3>Your data</h3>
+    <p class="muted small">Markers, visited rooms and notes are saved in this browser. Export a copy to back them up or move them to another computer.</p>
+    <div class="buttons">
+      <button id="export">Export…</button>
+      <button id="import">Import…</button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </div>
+    <div class="buttons">
+      <button id="reset" class="danger">Clear everything</button>
+    </div>
+  </section>
+
+  <section class="tabpane" id="tab-about">
+    <p>An interactive map of every cave room in <a href="https://store.steampowered.com/app/893850/THE_LONGING/">The Longing</a>, the 400-day adventure and idle game by Studio Seufz (2020). The Shade waits deep under the earth for the King to wake, and this map lays the whole underground out in one place.</p>
+    <p class="muted">Search for a room or click one to see where its passages, doorways and dark climbs lead. Mark rooms as visited, drop markers and notes as you explore, and move rooms around to untangle the map. Everything you add stays in your browser.</p>
+    <h2 class="index-title">Every room</h2>
+    <!-- room-index:begin -->
+    <div class="region">
+      <h3>Royal halls</h3>
+      <ul class="roomindex">
+        <li data-room="7">Entrance Hall</li>
+        <li data-room="21">Entrance Hall II</li>
+        <li data-room="54">Entrance Hall III</li>
+        <li data-room="4">Home</li>
+        <li data-room="6">King's Stairs</li>
+        <li data-room="3">The King</li>
+        <li data-room="8">Treasury</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>The halls</h3>
+      <ul class="roomindex">
+        <li data-room="68">Behind Hall L6</li>
+        <li data-room="24">Gallery</li>
+        <li data-room="23">Hall L1</li>
+        <li data-room="25">Hall L2</li>
+        <li data-room="26">Hall L3</li>
+        <li data-room="47">Hall L4</li>
+        <li data-room="51">Hall L6</li>
+        <li data-room="56">Hall L6 (lower path)</li>
+        <li data-room="52">Hall L7</li>
+        <li data-room="22">Hall L8</li>
+        <li data-room="53">Hall L9</li>
+        <li data-room="15">Hall R1</li>
+        <li data-room="9">Hall R2</li>
+        <li data-room="11">Hall R3</li>
+        <li data-room="10">Hall R4</li>
+        <li data-room="16">Hall R5</li>
+        <li data-room="18">Hall R6</li>
+        <li data-room="19">Hall R7</li>
+        <li data-room="20">Hall R8</li>
+        <li data-room="12">Moss Cliff</li>
+        <li data-room="17">The Face</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>Library &amp; grottos</h3>
+      <ul class="roomindex">
+        <li data-room="48">Grotto I</li>
+        <li data-room="49">Grotto II</li>
+        <li data-room="46">Library</li>
+        <li data-room="50">Library Entrance</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>Labyrinth &amp; Eternity</h3>
+      <ul class="roomindex">
+        <li data-room="44">Entrance to Eternity</li>
+        <li data-room="45">Halls of Eternity</li>
+        <li data-room="28">Labyrinth 1</li>
+        <li data-room="29">Labyrinth 2</li>
+        <li data-room="30">Labyrinth 3</li>
+        <li data-room="31">Labyrinth 4</li>
+        <li data-room="32">Labyrinth 5</li>
+        <li data-room="33">Labyrinth 6</li>
+        <li data-room="34">Labyrinth 7</li>
+        <li data-room="35">Labyrinth 8</li>
+        <li data-room="36">Labyrinth 9</li>
+        <li data-room="37">Labyrinth 10</li>
+        <li data-room="38">Labyrinth 11</li>
+        <li data-room="14">Labyrinth 11A</li>
+        <li data-room="39">Labyrinth 12</li>
+        <li data-room="40">Labyrinth 13</li>
+        <li data-room="41">Labyrinth 14</li>
+        <li data-room="64">Labyrinth 14A</li>
+        <li data-room="42">Labyrinth 15</li>
+        <li data-room="43">Labyrinth 16</li>
+        <li data-room="27">Labyrinth Entrance</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>Mines &amp; the Exit</h3>
+      <ul class="roomindex">
+        <li data-room="55">Ascent I</li>
+        <li data-room="61">Ascent II</li>
+        <li data-room="67">Great Cave</li>
+        <li data-room="63">Mine</li>
+        <li data-room="65">Mine Shaft I</li>
+        <li data-room="66">Mine Shaft II</li>
+        <li data-room="62">The Exit</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>The surface</h3>
+      <ul class="roomindex">
+        <li data-room="73">The Surface</li>
+        <li data-room="69">The Well</li>
+        <li data-room="60">Tower</li>
+      </ul>
+    </div>
+    <div class="region">
+      <h3>Mystery rooms</h3>
+      <ul class="roomindex">
+        <li data-room="72">Hall L5</li>
+        <li data-room="70">Mystery Room I</li>
+        <li data-room="71">Mystery Room II</li>
+      </ul>
+    </div>
+    <!-- room-index:end -->
+    <p class="muted small credits">A fan-made map, not affiliated with Studio Seufz or Application Systems Heidelberg. Source on <a href="https://github.com/app-roach/the-longing-map">GitHub</a>.</p>
+  </section>
+</aside>
+
+<div id="popover" hidden>
+  <div class="pop-types"></div>
+  <input id="pop-title" type="text" placeholder="Title" maxlength="80">
+  <textarea id="pop-note" rows="3" placeholder="Note"></textarea>
+  <div class="pop-foot">
+    <span id="pop-room" class="muted small"></span>
+    <button id="pop-delete" class="danger small">Delete</button>
+    <button id="pop-done" class="small">Done</button>
+  </div>
+</div>
+
+<div id="ctxmenu" hidden></div>
+
+<div id="toast" hidden></div>
+
+<script src="data/map.js"></script>
+<script src="data/layout.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+UnityPy==1.25.4
+TypeTreeGeneratorAPI
+numpy
+pillow
+opencv-python-headless
+fonttools
